@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Puzzle Bot: Maze Solver</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: white;
+        }
+
+        .game-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            max-width: 800px;
+            width: 100%;
+            color: #333;
+        }
+
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: linear-gradient(135deg, #FF8C42, #FF6B35);
+            border-radius: 15px;
+            color: white;
+            font-weight: bold;
+        }
+
+        .lives-display {
+            font-size: 18px;
+        }
+
+        .timer-display {
+            font-size: 18px;
+            color: #FFE5B4;
+        }
+
+        .score-display {
+            font-size: 16px;
+        }
+
+        .game-board {
+            display: grid;
+            gap: 2px;
+            background: #2C3E50;
+            padding: 10px;
+            border-radius: 10px;
+            margin: 20px 0;
+            justify-content: center;
+        }
+
+        .cell {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .floor {
+            background: #ECF0F1;
+        }
+
+        .wall {
+            background: #34495E;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .robot {
+            background: #ECF0F1;
+            animation: robotBob 2s infinite ease-in-out;
+            position: relative;
+        }
+
+        .robot::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            background: #FF8C42;
+            border: 1px solid #E67E22;
+            border-radius: 2px;
+            box-shadow: 
+                /* Head */
+                0 -12px 0 -6px #FF8C42,
+                0 -12px 0 -5px #E67E22,
+                /* Eyes */
+                -3px -11px 0 -8px #000,
+                3px -11px 0 -8px #000,
+                /* Arms */
+                -11px -2px 0 -6px #FF8C42,
+                11px -2px 0 -6px #FF8C42,
+                -11px -2px 0 -5px #E67E22,
+                11px -2px 0 -5px #E67E22,
+                /* Legs */
+                -5px 12px 0 -6px #FF8C42,
+                5px 12px 0 -6px #FF8C42,
+                -5px 12px 0 -5px #E67E22,
+                5px 12px 0 -5px #E67E22;
+        }
+
+        @keyframes robotBob {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-2px); }
+        }
+
+        .box {
+            background: #ECF0F1;
+        }
+
+        .box::after {
+            content: '📦';
+            font-size: 24px;
+        }
+
+        .switch {
+            background: #ECF0F1;
+        }
+
+        .switch::after {
+            content: '🔴';
+            font-size: 20px;
+        }
+
+        .switch.active::after {
+            content: '🟢';
+        }
+
+        .door {
+            background: #8B4513;
+        }
+
+        .door::after {
+            content: '🚪';
+            font-size: 24px;
+        }
+
+        .door.open {
+            background: #ECF0F1;
+        }
+
+        .door.open::after {
+            content: '';
+        }
+
+        .gear {
+            background: #ECF0F1;
+            animation: gearSpin 3s infinite linear;
+        }
+
+        .gear::after {
+            content: '⚙️';
+            font-size: 20px;
+        }
+
+        @keyframes gearSpin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .goal {
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+            animation: goalGlow 2s infinite alternate;
+        }
+
+        .goal::after {
+            content: '⭐';
+            font-size: 24px;
+        }
+
+        @keyframes goalGlow {
+            from { box-shadow: 0 0 10px #FFD700; }
+            to { box-shadow: 0 0 20px #FFD700, 0 0 30px #FFA500; }
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4A90E2, #357ABD);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #7ED321, #5CB85C);
+            color: white;
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #F5A623, #E67E22);
+            color: white;
+        }
+
+        .level-info {
+            text-align: center;
+            margin: 15px 0;
+            padding: 10px;
+            background: rgba(74, 144, 226, 0.1);
+            border-radius: 10px;
+        }
+
+        .level-complete {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            animation: celebrationPop 0.5s ease-out;
+        }
+
+        @keyframes celebrationPop {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+
+        .game-over {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #E74C3C, #C0392B);
+            color: white;
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+        }
+
+        .instructions {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            text-align: center;
+            font-size: 14px;
+            color: #555;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 600px) {
+            .game-container {
+                margin: 10px;
+                padding: 15px;
+            }
+            
+            .cell {
+                width: 30px;
+                height: 30px;
+                font-size: 18px;
+            }
+            
+            .game-header {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-header">
+            <div class="timer-display">⏰ Time: <span id="timer">03:00</span></div>
+            <div class="score-display">⚙️ Gears: <span id="gears">0</span>/<span id="totalGears">3</span></div>
+            <div class="score-display">🏆 Level: <span id="currentLevelDisplay">1</span></div>
+        </div>
+
+        <div class="level-info">
+            <h2 id="levelTitle">Level 1: First Steps</h2>
+            <p>Guide your orange robot to the golden star! Collect all gears along the way!</p>
+        </div>
+
+        <div id="gameBoard" class="game-board"></div>
+
+        <div class="controls">
+            <button class="btn btn-secondary" onclick="restartLevel()">🔄 Restart</button>
+            <button class="btn btn-primary" onclick="showHint()">💡 Hint</button>
+            <button class="btn btn-warning" onclick="nextLevel()" id="nextBtn" style="display:none;">➡️ Next Level</button>
+        </div>
+
+        <div class="instructions">
+            <strong>🕹️ Controls:</strong> Use Arrow Keys or WASD to move your robot | 
+            Push boxes (📦) onto switches (🔴) to open doors (🚪) | 
+            Collect all gears (⚙️) and reach the star (⭐)!
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        let currentLevel = 1;
+        let timeLeft = 180; // 3 minutes
+        let gearsCollected = 0;
+        let totalGears = 0;
+        let gameBoard = [];
+        let playerPos = { x: 0, y: 0 };
+        let gameTimer;
+        let levelComplete = false;
+
+        // Level definitions
+        const levels = [
+            {
+                title: "Level 1: First Steps",
+                time: 180,
+                board: [
+                    "WWWWWWWW",
+                    "W R   GW",
+                    "W   B  W",
+                    "W   S  W",
+                    "W   D  W",
+                    "W     *W",
+                    "WWWWWWWW"
+                ]
+            },
+            {
+                title: "Level 2: Box Push",
+                time: 150,
+                board: [
+                    "WWWWWWWWWW",
+                    "WR       W",
+                    "W  B  G  W",
+                    "W     S  W",
+                    "W     D  W",
+                    "W  G     W",
+                    "W     B  W",
+                    "W  S  D  W",
+                    "W    G  *W",
+                    "WWWWWWWWWW"
+                ]
+            },
+            {
+                title: "Level 3: Double Trouble",
+                time: 120,
+                board: [
+                    "WWWWWWWWWWWW",
+                    "WR  B  S   W",
+                    "W   G  D   W",
+                    "WWW     WWWW",
+                    "W   B  S   W",
+                    "W G    D G W",
+                    "W          W",
+                    "W   WWWW   W",
+                    "W   W *W   W",
+                    "WWWWWWWWWWWW"
+                ]
+            },
+            {
+                title: "Level 4: Maze Master",
+                time: 100,
+                board: [
+                    "WWWWWWWWWWWWWW",
+                    "WR    W   G  W",
+                    "W WWW W WWW  W",
+                    "W   W   W    W",
+                    "W B S D W    W",
+                    "W   W   W G  W",
+                    "W   WWWWW    W",
+                    "W     B S D  W",
+                    "W WWW        W",
+                    "W   W     G  W",
+                    "W   WWWWWWW  W",
+                    "W          * W",
+                    "WWWWWWWWWWWWWW"
+                ]
+            },
+            {
+                title: "Level 5: Grand Finale",
+                time: 90,
+                board: [
+                    "WWWWWWWWWWWWWWWW",
+                    "WR   G    W    W",
+                    "W WWW  BB W SS W",
+                    "W W    SS W DD W",
+                    "W W DD    W    W",
+                    "W W    WWWWWWWWW",
+                    "W WWWW         W",
+                    "W    W  G   B  W",
+                    "WWWW W    S D  W",
+                    "W  G   WWWWW   W",
+                    "W     W      G W",
+                    "W BBB W  SSSS  W",
+                    "W DDD W       *W",
+                    "WWWWWWWWWWWWWWWW"
+                ]
+            }
+        ];
+
+        // Initialize game
+        function initGame() {
+            loadLevel(currentLevel);
+            startTimer();
+            updateUI();
+        }
+
+        // Load a level
+        function loadLevel(levelNum) {
+            if (levelNum > levels.length) {
+                showGameComplete();
+                return;
+            }
+
+            const level = levels[levelNum - 1];
+            document.getElementById('levelTitle').textContent = level.title;
+            timeLeft = level.time;
+            gearsCollected = 0;
+            levelComplete = false;
+            
+            // Parse board
+            gameBoard = [];
+            totalGears = 0;
+            
+            for (let y = 0; y < level.board.length; y++) {
+                gameBoard[y] = [];
+                for (let x = 0; x < level.board[y].length; x++) {
+                    const cell = level.board[y][x];
+                    gameBoard[y][x] = {
+                        type: getTypeFromChar(cell),
+                        hasGear: cell === 'G',
+                        hasBox: cell === 'B',
+                        isSwitch: cell === 'S',
+                        isDoor: cell === 'D',
+                        isGoal: cell === '*',
+                        switchActive: false
+                    };
+                    
+                    if (cell === 'R') {
+                        playerPos = { x, y };
+                    }
+                    if (cell === 'G') {
+                        totalGears++;
+                    }
+                }
+            }
+
+            document.getElementById('nextBtn').style.display = 'none';
+            renderBoard();
+            updateUI();
+        }
+
+        function getTypeFromChar(char) {
+            switch (char) {
+                case 'W': return 'wall';
+                case 'R': return 'floor';
+                case 'G': return 'floor';
+                case 'B': return 'floor';
+                case 'S': return 'floor';
+                case 'D': return 'floor';
+                case '*': return 'floor';
+                default: return 'floor';
+            }
+        }
+
+        // Render the game board
+        function renderBoard() {
+            const boardElement = document.getElementById('gameBoard');
+            boardElement.innerHTML = '';
+            boardElement.style.gridTemplateColumns = `repeat(${gameBoard[0].length}, 40px)`;
+
+            for (let y = 0; y < gameBoard.length; y++) {
+                for (let x = 0; x < gameBoard[y].length; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    
+                    const cellData = gameBoard[y][x];
+                    
+                    // Add base type
+                    cell.classList.add(cellData.type);
+                    
+                    // Add robot
+                    if (playerPos.x === x && playerPos.y === y) {
+                        cell.classList.add('robot');
+                    }
+                    // Add box
+                    else if (cellData.hasBox) {
+                        cell.classList.add('box');
+                    }
+                    // Add gear
+                    else if (cellData.hasGear) {
+                        cell.classList.add('gear');
+                    }
+                    // Add switch
+                    else if (cellData.isSwitch) {
+                        cell.classList.add('switch');
+                        if (cellData.switchActive) {
+                            cell.classList.add('active');
+                        }
+                    }
+                    // Add door
+                    else if (cellData.isDoor) {
+                        cell.classList.add('door');
+                        if (cellData.switchActive) {
+                            cell.classList.add('open');
+                        }
+                    }
+                    // Add goal
+                    else if (cellData.isGoal) {
+                        cell.classList.add('goal');
+                    }
+                    
+                    boardElement.appendChild(cell);
+                }
+            }
+        }
+
+        // Handle player movement
+        function movePlayer(dx, dy) {
+            if (levelComplete) return;
+
+            const newX = playerPos.x + dx;
+            const newY = playerPos.y + dy;
+
+            // Check bounds
+            if (newX < 0 || newX >= gameBoard[0].length || newY < 0 || newY >= gameBoard.length) {
+                return;
+            }
+
+            const targetCell = gameBoard[newY][newX];
+
+            // Check wall collision
+            if (targetCell.type === 'wall') {
+                return;
+            }
+
+            // Check door collision
+            if (targetCell.isDoor && !targetCell.switchActive) {
+                return;
+            }
+
+            // Handle box pushing
+            if (targetCell.hasBox) {
+                const boxNewX = newX + dx;
+                const boxNewY = newY + dy;
+
+                // Check if box can be pushed
+                if (boxNewX < 0 || boxNewX >= gameBoard[0].length || 
+                    boxNewY < 0 || boxNewY >= gameBoard.length) {
+                    return;
+                }
+
+                const boxTargetCell = gameBoard[boxNewY][boxNewX];
+                
+                if (boxTargetCell.type === 'wall' || boxTargetCell.hasBox || 
+                    (boxTargetCell.isDoor && !boxTargetCell.switchActive)) {
+                    return;
+                }
+
+                // Move box
+                targetCell.hasBox = false;
+                boxTargetCell.hasBox = true;
+
+                // Check if box is on switch
+                checkSwitches();
+            }
+
+            // Move player
+            playerPos.x = newX;
+            playerPos.y = newY;
+
+            // Check gear collection
+            if (targetCell.hasGear) {
+                targetCell.hasGear = false;
+                gearsCollected++;
+                playSound('gear');
+            }
+
+            // Check goal
+            if (targetCell.isGoal && gearsCollected === totalGears) {
+                completeLevel();
+            }
+
+            renderBoard();
+            updateUI();
+        }
+
+        // Check switch states
+        function checkSwitches() {
+            for (let y = 0; y < gameBoard.length; y++) {
+                for (let x = 0; x < gameBoard[y].length; x++) {
+                    const cell = gameBoard[y][x];
+                    if (cell.isSwitch) {
+                        cell.switchActive = cell.hasBox;
+                    }
+                    if (cell.isDoor) {
+                        // Find corresponding switch (simple logic - door is active if any switch is active)
+                        let anySwitch = false;
+                        for (let sy = 0; sy < gameBoard.length; sy++) {
+                            for (let sx = 0; sx < gameBoard[sy].length; sx++) {
+                                if (gameBoard[sy][sx].isSwitch && gameBoard[sy][sx].switchActive) {
+                                    anySwitch = true;
+                                }
+                            }
+                        }
+                        cell.switchActive = anySwitch;
+                    }
+                }
+            }
+        }
+
+        // Complete level
+        function completeLevel() {
+            levelComplete = true;
+            clearInterval(gameTimer);
+            playSound('complete');
+            
+            setTimeout(() => {
+                showLevelComplete();
+            }, 500);
+        }
+
+        // Show level complete dialog
+        function showLevelComplete() {
+            const timeBonus = Math.max(0, timeLeft * 10);
+            const gearBonus = gearsCollected * 50;
+            const totalScore = 100 + timeBonus + gearBonus;
+
+            const dialog = document.createElement('div');
+            dialog.className = 'level-complete';
+            dialog.innerHTML = `
+                <h2>🎉 Level Complete!</h2>
+                <p>Your robot made it! 🟧</p>
+                <div style="margin: 20px 0;">
+                    <p>Base Score: 100</p>
+                    <p>Time Bonus: ${timeBonus}</p>
+                    <p>Gear Bonus: ${gearBonus}</p>
+                    <p><strong>Total: ${totalScore}</strong></p>
+                </div>
+                <button class="btn btn-primary" onclick="this.parentElement.remove(); nextLevel();">
+                    Next Level ➡️
+                </button>
+            `;
+            document.body.appendChild(dialog);
+
+            // Show next button
+            document.getElementById('nextBtn').style.display = 'inline-block';
+        }
+
+        // Game over
+        function gameOver() {
+            clearInterval(gameTimer);
+            const dialog = document.createElement('div');
+            dialog.className = 'game-over';
+            dialog.innerHTML = `
+                <h2>💔 Game Over</h2>
+                <p>Your robot ran out of lives!</p>
+                <p>Don't give up - try again!</p>
+                <button class="btn btn-primary" onclick="this.parentElement.remove(); restartGame();">
+                    Try Again 🔄
+                </button>
+            `;
+            document.body.appendChild(dialog);
+        }
+
+        // Show game complete
+        function showGameComplete() {
+            const dialog = document.createElement('div');
+            dialog.className = 'level-complete';
+            dialog.innerHTML = `
+                <h2>🏆 Congratulations!</h2>
+                <p>You've completed all levels!</p>
+                <p>Your orange robot is a maze master! 🟧</p>
+                <button class="btn btn-primary" onclick="this.parentElement.remove(); restartGame();">
+                    Play Again 🔄
+                </button>
+            `;
+            document.body.appendChild(dialog);
+        }
+
+        // Timer functions
+        function startTimer() {
+            clearInterval(gameTimer);
+            gameTimer = setInterval(() => {
+                timeLeft--;
+                updateUI();
+                
+                if (timeLeft <= 0) {
+                    // Time's up - show game over and restart level
+                    gameOver();
+                }
+            }, 1000);
+        }
+
+        // Update UI
+        function updateUI() {
+            document.getElementById('gears').textContent = gearsCollected;
+            document.getElementById('totalGears').textContent = totalGears;
+            document.getElementById('currentLevelDisplay').textContent = currentLevel;
+            
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            document.getElementById('timer').textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        // Game controls
+        function restartLevel() {
+            clearInterval(gameTimer);
+            loadLevel(currentLevel);
+            startTimer();
+        }
+
+        function nextLevel() {
+            currentLevel++;
+            loadLevel(currentLevel);
+            startTimer();
+        }
+
+        function restartGame() {
+            currentLevel = 1;
+            loadLevel(currentLevel);
+            startTimer();
+        }
+
+        function showHint() {
+            const levelHints = {
+                1: "💡 Move your orange robot to collect the gear, then push the box onto the red switch to open the door!",
+                2: "💡 You need to collect all gears first! Push boxes onto switches to open doors blocking your path.",
+                3: "💡 Plan your route carefully! Some doors need to stay open while you collect other gears.",
+                4: "💡 This is a complex maze! Look for the pattern - each box-switch pair opens a specific door.",
+                5: "💡 Grand finale! You'll need to activate multiple switches. Work backwards from the goal!"
+            };
+            
+            const hint = levelHints[currentLevel] || "💡 Collect all gears, push boxes onto switches to open doors, then reach the star!";
+            
+            // Create a nice hint dialog
+            const hintDialog = document.createElement('div');
+            hintDialog.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: linear-gradient(135deg, #4A90E2, #357ABD);
+                color: white;
+                padding: 25px;
+                border-radius: 15px;
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+                z-index: 1000;
+                max-width: 400px;
+                text-align: center;
+                font-size: 16px;
+                line-height: 1.5;
+            `;
+            
+            hintDialog.innerHTML = `
+                <h3 style="margin-bottom: 15px;">🔍 Hint for Level ${currentLevel}</h3>
+                <p style="margin-bottom: 20px;">${hint}</p>
+                <button class="btn btn-primary" onclick="this.parentElement.remove();" style="padding: 8px 16px; border: none; border-radius: 20px; background: white; color: #4A90E2; font-weight: bold; cursor: pointer;">
+                    Got it! 👍
+                </button>
+            `;
+            
+            document.body.appendChild(hintDialog);
+            
+            // Auto-remove after 8 seconds
+            setTimeout(() => {
+                if (hintDialog.parentElement) {
+                    hintDialog.remove();
+                }
+            }, 8000);
+        }
+
+        // Sound effects (simplified)
+        function playSound(type) {
+            // Create simple audio feedback using Web Audio API
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            switch (type) {
+                case 'gear':
+                    oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+                    oscillator.frequency.setValueAtTime(1200, audioContext.currentTime + 0.1);
+                    break;
+                case 'complete':
+                    oscillator.frequency.setValueAtTime(523, audioContext.currentTime);
+                    oscillator.frequency.setValueAtTime(659, audioContext.currentTime + 0.1);
+                    oscillator.frequency.setValueAtTime(784, audioContext.currentTime + 0.2);
+                    break;
+            }
+            
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.3);
+        }
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            switch (e.key) {
+                case 'ArrowUp':
+                case 'w':
+                case 'W':
+                    e.preventDefault();
+                    movePlayer(0, -1);
+                    break;
+                case 'ArrowDown':
+                case 's':
+                case 'S':
+                    e.preventDefault();
+                    movePlayer(0, 1);
+                    break;
+                case 'ArrowLeft':
+                case 'a':
+                case 'A':
+                    e.preventDefault();
+                    movePlayer(-1, 0);
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                case 'D':
+                    e.preventDefault();
+                    movePlayer(1, 0);
+                    break;
+                case 'r':
+                case 'R':
+                    e.preventDefault();
+                    restartLevel();
+                    break;
+                case 'h':
+                case 'H':
+                    e.preventDefault();
+                    showHint();
+                    break;
+            }
+        });
+
+        // Touch controls for mobile
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        document.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        });
+
+        document.addEventListener('touchend', (e) => {
+            if (!touchStartX || !touchStartY) return;
+
+            const touchEndX = e.changedTouches[0].clientX;
+            const touchEndY = e.changedTouches[0].clientY;
+
+            const diffX = touchStartX - touchEndX;
+            const diffY = touchStartY - touchEndY;
+
+            if (Math.abs(diffX) > Math.abs(diffY)) {
+                if (diffX > 0) {
+                    movePlayer(-1, 0); // left
+                } else {
+                    movePlayer(1, 0); // right
+                }
+            } else {
+                if (diffY > 0) {
+                    movePlayer(0, -1); // up
+                } else {
+                    movePlayer(0, 1); // down
+                }
+            }
+
+            touchStartX = 0;
+            touchStartY = 0;
+        });
+
+        // Initialize the game
+        initGame();
+    </script>
+</body>
+</html>
